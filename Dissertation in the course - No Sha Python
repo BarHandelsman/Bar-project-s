@@ -1,0 +1,298 @@
+import pandas as pd
+
+import numpy as np
+
+import matplotlib.pyplot as plt
+
+import seaborn as sns
+
+df = pd.read_csv('customer_shopping_data.csv')
+
+print(df.head())
+
+print(df.info())
+print(df.isnull().sum())
+
+print(df.dtypes)
+
+df['invoice_date'] = pd.to_datetime(df['invoice_date'])
+
+print(df.dtypes)
+
+print(df.head())
+
+### **3. Data Manipulation: **
+
+#3.1 Total Purchases & Buyers & Ratio:
+
+grouped = df.groupby('gender')['price'].sum()
+
+total_buyers = df['gender'].value_counts()
+
+ratio_to_total = grouped / total_buyers
+
+results_df = pd.DataFrame({
+    'Gender': grouped.index,
+    'Total Purchases': grouped.values,
+    'Total Buyers': total_buyers.values,
+    'Ratio to Total Purchases': ratio_to_total.values
+})
+
+results_df.set_index('Gender', inplace=True)
+
+results_df = results_df.applymap(lambda x: "{:,.2f}".format(x) if isinstance(x, (int, float)) else x)
+
+women_ratio = float(results_df.loc['Female', 'Ratio to Total Purchases'])
+men_ratio = float(results_df.loc['Male', 'Ratio to Total Purchases'])
+ratio_women_to_men = women_ratio / men_ratio
+
+print("Results Table:")
+print(results_df)
+print("\nRatio between Women's Ratio and Men's Ratio:", "{:.2f}".format(ratio_women_to_men))
+
+#3.2 Total price by category (descending order):
+
+grouped = df.groupby('category')['price'].sum()
+
+grouped_sorted = grouped.sort_values(ascending=False)
+
+grouped_sorted = grouped_sorted.apply(lambda x: "{:,.2f}".format(x))
+
+print("Total price by category:")
+print(grouped_sorted)
+
+#3.3 Amount spent by men and women in each mall (sorted by 'total' column):
+
+grouped_amount_spent = df.groupby(['shopping_mall', 'gender'])['price'].sum().unstack(fill_value=0)
+
+grouped_amount_spent['total'] = grouped_amount_spent.sum(axis=1)
+
+grouped_amount_spent_sorted = grouped_amount_spent.sort_values(by='total', ascending=False)
+
+grouped_amount_spent_sorted = grouped_amount_spent_sorted.applymap(lambda x: "{:,.2f}".format(x) if isinstance(x, (int, float)) else x)
+
+print("Amount spent by men and women in each mall:")
+print(grouped_amount_spent_sorted)
+
+grouped = df.groupby(['gender', 'category'])['price'].sum().reset_index()
+
+pivot_table_all = grouped.pivot_table(index='gender', columns='category', values='price', aggfunc='sum', fill_value=0)
+
+pivot_table_all = pivot_table_all.applymap(lambda x: "{:,.2f}".format(x) if isinstance(x, (int, float)) else x)
+
+print("All categories by each gender based on amount spent:")
+print(pivot_table_all)
+
+#3.4 Top 3 categories by each gender based on amount spent:
+
+grouped = df.groupby(['gender', 'category'])['price'].sum().reset_index()
+
+top_3 = grouped.sort_values(by=['gender', 'price'], ascending=[True, False]) \
+              .groupby('gender').head(3)
+
+pivot_table_top_3 = top_3.pivot_table(index='gender', columns='category', values='price', aggfunc='sum', fill_value=0)
+
+pivot_table_top_3 = pivot_table_top_3.applymap(lambda x: "{:,.2f}".format(x) if isinstance(x, (int, float)) else x)
+
+print("Top 3 categories by each gender based on amount spent:")
+print(pivot_table_top_3)
+
+#3.5 Top 3 from the end categories by each gender from the end based on amount spent:
+grouped = df.groupby(['gender', 'category'])['price'].sum().reset_index()
+
+top_3_from_end = grouped.sort_values(by=['gender', 'price'], ascending=[True, True]) \
+                       .groupby('gender').head(3)
+
+pivot_table_top_3_from_end = top_3_from_end.pivot_table(index='gender', columns='category', values='price', aggfunc='sum', fill_value=0)
+
+print("Top 3 from the end categories by each gender from the end based on amount spent:")
+print(pivot_table_top_3_from_end)
+
+#3.6 Calculate total purchases made by gender and payment method (descending order):
+
+purchase_totals = df.groupby(['gender', 'payment_method'])['price'].sum().reset_index()
+
+purchase_totals.columns = ['Gender', 'Payment Method', 'Total Price']
+
+women_totals = purchase_totals[purchase_totals['Gender'] == 'Female'].sort_values(by='Total Price', ascending=False)
+men_totals = purchase_totals[purchase_totals['Gender'] == 'Male'].sort_values(by='Total Price', ascending=False)
+
+sorted_totals = pd.concat([women_totals, men_totals])
+
+sorted_totals.reset_index(drop=True, inplace=True)
+
+sorted_totals['Total Price'] = sorted_totals['Total Price'].apply(lambda x: "{:,.2f}".format(x))
+
+print(sorted_totals)
+
+#3.7 Total purchases by month:
+
+df['month_name'] = df['invoice_date'].dt.strftime('%B')
+
+total_purchases_by_month = df.groupby(['month_name'])['price'].sum().reset_index()
+
+total_purchases_by_month['price'] = total_purchases_by_month['price'].apply(lambda x: "{:,.2f}".format(x))
+
+total_purchases_by_month = total_purchases_by_month.sort_values(by='price', ascending=False)
+
+print(total_purchases_by_month)
+
+### **4. Data Analysis and Insights: **
+
+#4.1 summary_stats:
+
+summary_stats = df.describe()
+
+summary_stats = summary_stats.round(2)
+
+print("Summary Statistics:")
+print(summary_stats)
+
+#4.2 correlation:
+
+correlation_matrix = df.corr(numeric_only=True)
+
+correlation_matrix = correlation_matrix.round(2)
+
+print("\nCorrelation Matrix:")
+print(correlation_matrix)
+
+#4.3 Average Order Value:
+
+average_order_value = df['price'].mean()
+
+average_order_value = average_order_value.round(2)
+
+print("Average Order Value: $", average_order_value)
+
+#4.4 Most Popular Products:
+
+popular_products = df.groupby('category')['quantity'].sum().sort_values(ascending=False).head(5)
+
+print("Most Popular Products:")
+print(popular_products)
+
+#4.5 Calculation of the necessary amount according to age and gender segmentation:
+
+bins = [18, 30, 40, 50, 60, 69]
+labels = ['18-29', '30-39', '40-49', '50-59', '60-69']
+
+df['age_group'] = pd.cut(df['age'], bins=bins, labels=labels, right=False)
+
+amount_by_age_gender = df.groupby(['age_group', 'gender'])['price'].sum().reset_index()
+
+sorted_df = amount_by_age_gender.sort_values(by=['gender', 'price'], ascending=[True, False]).reset_index(drop=True)
+
+sorted_df['price'] = sorted_df['price'].apply(lambda x: "{:,.2f}".format(x))
+
+print(sorted_df)
+
+### **5. Data Visualization: **
+
+#5.1 Histogram of age Column:
+
+bins = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+labels = ['10-19', '20-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80-89', '90-100']
+
+# Assign each age to a group
+df['age_group'] = pd.cut(df['age'], bins=bins, labels=labels, right=False)
+
+# Plot the histogram
+plt.figure(figsize=(10, 6))
+sns.histplot(df, x='age_group', bins=len(labels), kde=True)
+plt.title('Histogram of age Column')
+plt.xlabel('Age Group')
+plt.ylabel('Amount')
+plt.xticks(rotation=45)  # Rotate x-axis labels for better visibility
+plt.show()
+
+#5.2 Histogram of Age Column with Total Purchase Line:
+
+df['age_group'] = pd.cut(df['age'], bins=bins, labels=labels, right=False)
+
+total_purchase = df.groupby('age_group')['price'].sum().reset_index()
+
+plt.figure(figsize=(10, 6))
+sns.histplot(df['age_group'], bins=len(labels), kde=True, stat="count", linewidth=0)
+sns.lineplot(data=total_purchase, x='age_group', y='price', marker='o', color='red')
+plt.title('Histogram of Age Column with Total Purchase Line')
+plt.xlabel('Age Group')
+plt.ylabel('Amount')
+plt.xticks(rotation=45)
+plt.show()
+
+#5.3 Sales by Category:
+plt.figure(figsize=(10, 6))
+plt.bar(df['category'], df['price'], color='skyblue')
+plt.xlabel('Category')
+plt.ylabel('Price')
+plt.title('Sales by Category')
+plt.show()
+
+#5.4 Total shopping according to the number of items boughty:
+
+bins = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
+labels = ['1', '2', '3', '4', '5']
+
+df['quantity_group'] = pd.cut(df['quantity'], bins=bins, labels=labels, right=False)
+
+sales_by_quantity = df['quantity_group'].value_counts().sort_index()
+
+plt.figure(figsize=(8, 6))
+bars = sales_by_quantity.plot(kind='bar', color='skyblue')
+
+for bar, count in zip(bars.patches, sales_by_quantity):
+    plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3, count,
+             ha='center', va='bottom')
+
+plt.xlabel('Quantity')
+plt.ylabel('Number of Sales')
+plt.title('Total shopping according to the number of items bought')
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+#5.5 Total Purchase by Payment Method:
+
+grouped = df.groupby('payment_method')['price'].sum().reset_index()
+
+plt.figure(figsize=(8, 6))
+plt.pie(grouped['price'], labels=grouped['payment_method'], autopct='%1.1f%%', startangle=90, colors=['skyblue', 'lightgreen', 'lightcoral', 'lightskyblue'])
+plt.title('Total Purchase Distribution by Payment Method')
+
+plt.axis('equal')
+
+plt.show()
+
+#5.6 Total purchases by month:
+
+df['invoice_date'] = pd.to_datetime(df['invoice_date'])
+
+df['month'] = df['invoice_date'].dt.month
+
+grouped = df.groupby('month')['price'].sum().reset_index()
+
+plt.figure(figsize=(10, 6))
+plt.plot(grouped['month'], grouped['price'], marker='o', color='skyblue', linestyle='-')
+plt.xlabel('Month')
+plt.ylabel('Total Purchase')
+plt.title('Total Purchase by Month')
+plt.xticks(range(1, 13))
+plt.tight_layout()
+
+plt.show()
+
+### **6. Data Summary: **
+
+insight_3_1 = "It can be seen that men spend more money for shopping but women generally spend more money"
+insight_4_1 = "Most of the people who visit the owners are under the age of 55"
+insight_4_5 = "For both women and men, the 30-39 age group spends the least"
+insight_5_1_5_2 = "It can be seen that there is a match between the number of visitors and the expenses made by age group"
+insight_5_5 = "You will see that the two months after January and the two months before August have the most shopping"
+
+# Print the insights
+print("Insight into the section 3.1 =", insight_3_1)
+print("Insight into the section 4.1 =", insight_4_1)
+print("Insight into the section 4.5 =", insight_4_5)
+print("Insight into the section 5.1 and 5.2 =", insight_5_1_5_2)
+print("Insight into the section 5.5 =", insight_5_5)
